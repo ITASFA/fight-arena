@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<meta charset="UTF-8">
+<title>RUPTURE ARENA</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg: #0b0b10;
+    --bg2: #14141c;
+    --line: #262633;
+    --p1: #ff3864;
+    --p1-glow: rgba(255,56,100,0.5);
+    --p2: #29e0d6;
+    --p2-glow: rgba(41,224,214,0.5);
+    --ink: #eef0f5;
+    --dim: #6c6c82;
+  }
+  *{box-sizing:border-box;}
+  html,body{
+    margin:0; height:100%;
+    background: radial-gradient(ellipse at 50% 0%, var(--bg2), var(--bg) 70%);
+    color: var(--ink);
+    font-family: 'Space Mono', monospace;
+    overflow:hidden;
+    display:flex; align-items:center; justify-content:center;
+  }
+  #app{ width:900px; max-width:100vw; padding:16px; }
+  h1.title{
+    font-family:'Orbitron', sans-serif;
+    font-weight:900;
+    font-size:38px;
+    letter-spacing:4px;
+    text-align:center;
+    margin: 4px 0 2px;
+    background: linear-gradient(90deg, var(--p1), var(--p2));
+    -webkit-background-clip:text; background-clip:text; color:transparent;
+  }
+  .sub{ text-align:center; color:var(--dim); font-size:12px; letter-spacing:3px; text-transform:uppercase; margin-bottom:18px;}
+
+  /* ---- CHARACTER SELECT ---- */
+  #select{ display:flex; flex-direction:column; align-items:center; gap:18px;}
+  .roster{ display:flex; gap:14px; flex-wrap:wrap; justify-content:center;}
+  .card{
+    width:140px; padding:14px 10px; background:var(--bg2);
+    border:1px solid var(--line); border-radius:2px; text-align:center;
+    cursor:pointer; transition: transform .15s ease, border-color .15s ease;
+    position:relative;
+  }
+  .card:hover{ transform: translateY(-4px); border-color: var(--dim);}
+  .card.chosen{ border-color: var(--p1); box-shadow: 0 0 18px var(--p1-glow);}
+  .card .swatch{ width:56px; height:56px; margin:0 auto 10px; border-radius:50%; }
+  .card h3{ font-family:'Orbitron',sans-serif; font-size:14px; margin:0 0 6px; letter-spacing:1px;}
+  .card .stat{ font-size:10px; color:var(--dim); display:flex; justify-content:space-between; margin-top:3px;}
+  .card .bar{ height:3px; background:var(--line); margin-top:2px; position:relative;}
+  .card .bar i{ position:absolute; left:0; top:0; bottom:0; background:var(--p2);}
+  #startBtn{
+    font-family:'Orbitron',sans-serif; letter-spacing:2px; font-weight:700;
+    background: var(--p1); color:#160404; border:none; padding:12px 34px;
+    border-radius:2px; cursor:pointer; font-size:14px;
+    box-shadow: 0 0 20px var(--p1-glow);
+    opacity:.4; pointer-events:none; transition:opacity .2s;
+  }
+  #startBtn.ready{ opacity:1; pointer-events:auto; }
+
+  /* ---- GAME ---- */
+  #game{ display:none; flex-direction:column; align-items:center; }
+  #hud{ width:800px; display:flex; align-items:center; gap:10px; margin-bottom:6px;}
+  .hp-wrap{ flex:1; }
+  .hp-name{ font-family:'Orbitron',sans-serif; font-size:12px; letter-spacing:1px; margin-bottom:3px; display:flex; justify-content:space-between;}
+  .hp-bar{ height:14px; background:#1c1c26; border:1px solid var(--line); position:relative; overflow:hidden;}
+  .hp-fill{ height:100%; transition: width .15s ease; }
+  #p1fill{ background: linear-gradient(90deg, var(--p1), #ff8a5c); float:left;}
+  #p2fill{ background: linear-gradient(90deg, #ff8a5c, var(--p2)); float:right;}
+  .hp-bar.p2 .hp-fill{ float:right; }
+  #timer{ font-family:'Orbitron',sans-serif; font-size:26px; width:60px; text-align:center; color:var(--ink);}
+  .rounds{ display:flex; gap:4px; }
+  .rounds i{ width:9px; height:9px; border-radius:50%; background: var(--line); display:inline-block;}
+  .rounds i.won{ background: var(--p2); }
+  #rp1 i.won{ background: var(--p1); }
+
+  canvas{ background:
+      linear-gradient(180deg, #191924 0%, #14141c 55%, #0d0d13 55%, #0d0d13 100%);
+    border:1px solid var(--line);
+    display:block;
+  }
+  #banner{
+    position:absolute; font-family:'Orbitron',sans-serif; font-weight:900;
+    font-size:52px; letter-spacing:3px; color:var(--ink);
+    text-shadow: 0 0 24px var(--p1-glow), 0 0 24px var(--p2-glow);
+    opacity:0; pointer-events:none;
+  }
+  #controls{ margin-top:10px; font-size:11px; color:var(--dim); text-align:center; line-height:1.6;}
+  #controls b{ color:var(--ink);}
+  #wrap-canvas{ position:relative; }
+  #again{
+    margin-top:14px; font-family:'Orbitron',sans-serif; letter-spacing:2px; font-weight:700;
+    background:transparent; color: var(--p2); border:1px solid var(--p2); padding:10px 26px;
+    border-radius:2px; cursor:pointer; display:none;
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <h1 class="title">RUPTURE ARENA</h1>
+  <div class="sub">escolha seu lutador · vença a IA em 2 de 3 rounds</div>
+
+  <div id="select">
+    <div class="roster" id="roster"></div>
+    <button id="startBtn">Entrar na Arena</button>
+  </div>
+
+  <div id="game">
+    <div id="hud">
+      <div class="hp-wrap">
+        <div class="hp-name"><span id="p1label">P1</span><span class="rounds" id="rp1"></span></div>
+        <div class="hp-bar"><div class="hp-fill" id="p1fill" style="width:100%"></div></div>
+      </div>
+      <div id="timer">60</div>
+      <div class="hp-wrap">
+        <div class="hp-name"><span class="rounds" id="rp2"></span><span id="p2label">CPU</span></div>
+        <div class="hp-bar p2"><div class="hp-fill" id="p2fill" style="width:100%"></div></div>
+      </div>
+    </div>
+    <div id="wrap-canvas">
+      <canvas id="c" width="800" height="360"></canvas>
+      <div id="banner"></div>
+    </div>
+    <button id="again">Revanche</button>
+    <div id="controls">
+      <b>A / D</b> mover · <b>W</b> pular · <b>S</b> defender · <b>J</b> soco · <b>K</b> chute
+    </div>
+  </div>
+</div>
+
+<script>
+const ROSTER = [
+  { name:"KAEL",  color:"#ff3864", speed:4.2, power:1.0,  desc:"equilibrado" },
+  { name:"VEX",   color:"#ffb703", speed:5.3, power:0.82, desc:"veloz" },
+  { name:"REX",   color:"#8338ec", speed:3.4, power:1.25, desc:"pesado" },
+  { name:"NYX",   color:"#29e0d6", speed:4.6, power:0.95, desc:"técnico" },
+];
+
+let chosenIdx = null, cpuIdx = null;
+const rosterEl = document.getElementById('roster');
+ROSTER.forEach((f, i) => {
+  const card = document.createElement('div');
+  card.className = 'card';
+  card.innerHTML = `
+    <div class="swatch" style="background:${f.color}"></div>
+    <h3>${f.name}</h3>
+    <div class="stat"><span>vel</span><span>${f.speed}</span></div>
+    <div class="bar"><i style="width:${f.speed/6*100}%"></i></div>
+    <div class="stat"><span>força</span><span>${f.power.toFixed(2)}</span></div>
+    <div class="bar"><i style="width:${f.power/1.3*100}%; background:${f.color}"></i></div>
+    <div class="stat" style="margin-top:6px;color:${f.color}">${f.desc}</div>
+  `;
+  card.onclick = () => {
+    chosenIdx = i;
+    [...rosterEl.children].forEach(c => c.classList.remove('chosen'));
+    card.classList.add('chosen');
+    document.getElementById('startBtn').classList.add('ready');
+  };
+  rosterEl.appendChild(card);
+});
+
+document.getElementById('startBtn').onclick = () => {
+  if (chosenIdx === null) return;
+  const options = ROSTER.map((_,i)=>i).filter(i=>i!==chosenIdx);
+  cpuIdx = options[Math.floor(Math.random()*options.length)];
+  document.getElementById('select').style.display = 'none';
+  document.getElementById('game').style.display = 'flex';
+  document.getElementById('p1label').textContent = ROSTER[chosenIdx].name;
+  document.getElementById('p2label').textContent = ROSTER[cpuIdx].name + " (CPU)";
+  startMatch();
+};
+document.getElementById('again').onclick = () => location.reload();
+
+// ---------------- GAME ----------------
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+const W = canvas.width, H = canvas.height, GROUND = 300;
+
+function makeFighter(cfg, x, facing, isCPU){
+  return {
+    ...cfg, x, y: GROUND, vx:0, vy:0, facing, isCPU,
+    hp:100, state:'idle', // idle, walk, jump, crouch, block, punch, kick, hit, ko
+    stateTimer:0, cooldown:0, invuln:0,
+    w:34, h:70,
+    wins:0
+  };
+}
+
+let p1, p2, keys = {}, roundTime, roundNo, matchOver, animId;
+window.addEventListener('keydown', e => keys[e.key.toLowerCase()] = true);
+window.addEventListener('keyup', e => keys[e.key.toLowerCase()] = false);
+
+function startMatch(){
+  roundNo = 1;
+  p1 = makeFighter(ROSTER[chosenIdx], 220, 1, false);
+  p2 = makeFighter(ROSTER[cpuIdx], 580, -1, true);
+  p1.wins = p2.wins = 0;
+  matchOver = false;
+  drawRoundDots();
+  startRound();
+}
+
+function startRound(){
+  p1.hp = 100; p2.hp = 100;
+  p1.x = 220; p2.x = 580;
+  p1.state = p2.state = 'idle';
+  p1.stateTimer = p2.stateTimer = 0;
+  roundTime = 60;
+  showBanner(`ROUND ${roundNo}`, 900);
+  updateHP();
+  document.getElementById('timer').textContent = roundTime;
+  clearInterval(window._timerInt);
+  window._timerInt = setInterval(() => {
+    if (matchOver) return;
+    roundTime--;
+    document.getElementById('timer').textContent = roundTime;
+    if (roundTime <= 0) endRound(p1.hp === p2.hp ? null : (p1.hp > p2.hp ? p1 : p2));
+  }, 1000);
+  cancelAnimationFrame(animId);
+  loop();
+}
+
+function showBanner(text, ms){
+  const b = document.getElementById('banner');
+  const wrap = document.getElementById('wrap-canvas').getBoundingClientRect();
+  b.textContent = text;
+  b.style.left = (W/2 - 150) + 'px';
+  b.style.top = (H/2 - 40) + 'px';
+  b.style.opacity = 1;
+  clearTimeout(b._t);
+  b._t = setTimeout(() => b.style.opacity = 0, ms);
+}
+
+function drawRoundDots(){
+  ['rp1','rp2'].forEach((id,idx)=>{
+    const el = document.getElementById(id);
+    el.innerHTML = '';
+    for(let i=0;i<2;i++){
+      const dot = document.createElement('i');
+      const f = idx===0?p1:p2;
+      if (f && f.wins > i) dot.classList.add('won');
+      el.appendChild(dot);
+    }
+  });
+}
+
+function updateHP(){
+  document.getElementById('p1fill').style.width = Math.max(0,p1.hp) + '%';
+  document.getElementById('p2fill').style.width = Math.max(0,p2.hp) + '%';
+}
+
+const ATTACKS = {
+  punch: { range:56, dmg:6, active:8, total:20, cd:26 },
+  kick:  { range:70, dmg:11, active:10, total:34, cd:44 },
+};
+
+function tryAttack(f, type){
+  if (f.state !== 'idle' && f.state !== 'walk') return;
+  if (f.cooldown > 0) return;
+  f.state = type; f.stateTimer = 0;
+}
+
+function distanceBetween(){ return Math.abs(p1.x - p2.x); }
+
+function physics(f, other){
+  // facing
+  f.facing = f.x < other.x ? 1 : -1;
+
+  if (f.state === 'punch' || f.state === 'kick'){
+    const atk = ATTACKS[f.state];
+    f.stateTimer++;
+    if (f.stateTimer === atk.active){
+      const dist = distanceBetween();
+      if (dist <= atk.range && other.invuln <= 0){
+        const blocked = other.state === 'block' && Math.sign(other.x - f.x) !== other.facing*-1 ? true : other.state==='block';
+        let dmg = atk.dmg * f.power;
+        if (blocked) dmg *= 0.15;
+        other.hp = Math.max(0, other.hp - dmg);
+        other.invuln = 10;
+        other.hitstun = blocked ? 6 : 14;
+        if (!blocked){ other.state = 'hit'; other.stateTimer = 0; }
+        updateHP();
+        flashHit((f.x+other.x)/2, f.y-40, blocked);
+        if (other.hp <= 0){ f.state='idle'; return endRound(f); }
+      }
+    }
+    if (f.stateTimer >= atk.total){ f.state='idle'; f.stateTimer=0; f.cooldown = atk.cd; }
+    return;
+  }
+  if (f.state === 'hit'){
+    f.stateTimer++;
+    if (f.stateTimer > 16){ f.state='idle'; f.stateTimer=0; }
+    return;
+  }
+  if (f.cooldown > 0) f.cooldown--;
+  if (f.invuln > 0) f.invuln--;
+}
+
+let hitSparks = [];
+function flashHit(x,y,blocked){
+  hitSparks.push({x,y,t:0, blocked});
+}
+
+function endRound(winner){
+  clearInterval(window._timerInt);
+  if (winner){ winner.wins++; }
+  drawRoundDots();
+  showBanner(winner ? (winner===p1 ? "VOCÊ VENCE O ROUND" : "CPU VENCE O ROUND") : "EMPATE", 1400);
+  cancelAnimationFrame(animId);
+  setTimeout(() => {
+    if (p1.wins >= 2 || p2.wins >= 2){
+      matchOver = true;
+      showBanner(p1.wins > p2.wins ? "VITÓRIA!" : "DERROTA", 5000);
+      document.getElementById('again').style.display = 'inline-block';
+    } else {
+      roundNo++;
+      startRound();
+    }
+  }, 1500);
+}
+
+// ---- Player input ----
+function handlePlayer(f){
+  if (f.state === 'punch' || f.state === 'kick' || f.state === 'hit') return;
+  let moving = false;
+  if (keys['a']){ f.x -= f.speed; moving = true; }
+  if (keys['d']){ f.x += f.speed; moving = true; }
+  f.x = Math.max(30, Math.min(W-30, f.x));
+  if (keys['s']){ f.state = 'block'; }
+  else if (keys['j']){ tryAttack(f,'punch'); }
+  else if (keys['k']){ tryAttack(f,'kick'); }
+  else { f.state = moving ? 'walk' : 'idle'; }
+}
+
+// ---- Simple CPU AI ----
+let aiTimer = 0, aiPlan = 'idle';
+function handleCPU(f, other){
+  if (f.state === 'punch' || f.state === 'kick' || f.state === 'hit') return;
+  aiTimer--;
+  const dist = distanceBetween();
+  if (aiTimer <= 0){
+    aiTimer = 10 + Math.random()*14;
+    const aggression = 0.5 + (1 - f.hp/100)*0.2 + (1 - other.hp/100)*0.15;
+    if (dist > 80){
+      aiPlan = Math.random() < 0.85 ? 'approach' : 'idle';
+    } else if (dist > 40) {
+      const r = Math.random();
+      aiPlan = r < 0.4*aggression ? 'punch' : (r < 0.6*aggression ? 'kick' : (r < 0.8 ? 'approach' : 'block'));
+    } else {
+      const r = Math.random();
+      if (other.state === 'punch' || other.state === 'kick'){
+        aiPlan = Math.random() < 0.55 ? 'block' : 'retreat';
+      } else {
+        aiPlan = r < 0.45*aggression ? 'punch' : (r < 0.7*aggression ? 'kick' : (r < 0.85 ? 'retreat' : 'block'));
+      }
+    }
+  }
+  if (aiPlan === 'approach'){ f.x += f.speed*0.9*Math.sign(other.x-f.x); f.state='walk'; }
+  else if (aiPlan === 'retreat'){ f.x -= f.speed*0.8*Math.sign(other.x-f.x); f.state='walk'; }
+  else if (aiPlan === 'block'){ f.state='block'; }
+  else if (aiPlan === 'punch'){ tryAttack(f,'punch'); }
+  else if (aiPlan === 'kick'){ tryAttack(f,'kick'); }
+  else { f.state='idle'; }
+  f.x = Math.max(30, Math.min(W-30, f.x));
+}
+
+function drawFighter(f){
+  ctx.save();
+  const cx = f.x, cy = f.y;
+  ctx.translate(cx, cy);
+  ctx.scale(f.facing, 1);
+
+  let bob = 0;
+  if (f.state === 'walk') bob = Math.sin(Date.now()/90) * 4;
+  if (f.state === 'hit') { ctx.globalAlpha = f.invuln % 4 < 2 ? 0.5 : 1; }
+
+  // legs
+  ctx.fillStyle = shade(f.color, -40);
+  const crouch = f.state === 'block' ? 10 : 0;
+  ctx.fillRect(-10, -30+crouch, 8, 30-crouch);
+  ctx.fillRect(2, -30+crouch, 8, 30-crouch);
+
+  // torso
+  ctx.fillStyle = f.color;
+  const torsoH = f.state==='block' ? 34 : 40;
+  ctx.fillRect(-14, -30-torsoH+bob, 28, torsoH);
+
+  // head
+  ctx.fillStyle = shade(f.color, 30);
+  ctx.beginPath();
+  ctx.arc(0, -30-torsoH-10+bob, 11, 0, Math.PI*2);
+  ctx.fill();
+
+  // arm / attack
+  ctx.fillStyle = shade(f.color, 15);
+  if (f.state === 'punch'){
+    const ext = Math.min(f.stateTimer/8, 1) * 34;
+    ctx.fillRect(10, -30-torsoH+14, 10+ext, 8);
+  } else if (f.state === 'kick'){
+    const ext = Math.min(f.stateTimer/10, 1) * 40;
+    ctx.fillRect(6, -18, 10+ext, 9);
+  } else if (f.state === 'block'){
+    ctx.fillRect(6, -30-torsoH+10, 16, 22);
+  } else {
+    ctx.fillRect(10, -30-torsoH+16, 16, 8);
+  }
+  ctx.restore();
+}
+
+function shade(hex, amt){
+  const num = parseInt(hex.slice(1),16);
+  let r = (num>>16)+amt, g=((num>>8)&0xff)+amt, b=(num&0xff)+amt;
+  r=Math.max(0,Math.min(255,r)); g=Math.max(0,Math.min(255,g)); b=Math.max(0,Math.min(255,b));
+  return `rgb(${r},${g},${b})`;
+}
+
+function draw(){
+  ctx.clearRect(0,0,W,H);
+  // ground line + grid feel
+  ctx.strokeStyle = '#262633';
+  ctx.beginPath(); ctx.moveTo(0, GROUND+1); ctx.lineTo(W, GROUND+1); ctx.stroke();
+  for(let i=0;i<W;i+=40){
+    ctx.strokeStyle = 'rgba(255,255,255,0.02)';
+    ctx.beginPath(); ctx.moveTo(i,0); ctx.lineTo(i,H); ctx.stroke();
+  }
+
+  drawFighter(p1);
+  drawFighter(p2);
+
+  hitSparks.forEach(s => {
+    s.t++;
+    ctx.save();
+    ctx.globalAlpha = 1 - s.t/14;
+    ctx.strokeStyle = s.blocked ? '#29e0d6' : '#ffdd57';
+    ctx.lineWidth = 3;
+    for(let i=0;i<5;i++){
+      const ang = (i/5)*Math.PI*2 + s.t*0.2;
+      const len = 6 + s.t*2;
+      ctx.beginPath();
+      ctx.moveTo(s.x, s.y);
+      ctx.lineTo(s.x + Math.cos(ang)*len, s.y + Math.sin(ang)*len);
+      ctx.stroke();
+    }
+    ctx.restore();
+  });
+  hitSparks = hitSparks.filter(s => s.t < 14);
+}
+
+function loop(){
+  if (matchOver) return;
+  handlePlayer(p1);
+  handleCPU(p2, p1);
+  physics(p1, p2);
+  physics(p2, p1);
+  draw();
+  animId = requestAnimationFrame(loop);
+}
+</script>
+</body>
+</html>
